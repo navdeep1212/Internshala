@@ -43,8 +43,17 @@ export default async function handler(
   const pass = process.env.EMAIL_SERVER_PASSWORD || "";
   const port = parseInt(process.env.EMAIL_SERVER_PORT || "465");
 
+  const isProduction = process.env.NODE_ENV === "production";
+
   if (!user || !pass) {
-    // Sandbox / Developer mode fallback
+    if (isProduction) {
+      return res.status(500).json({
+        success: false,
+        message: "Email service is not configured on Vercel. Please add EMAIL_SERVER_USER and EMAIL_SERVER_PASSWORD environment variables in your Vercel Project Settings.",
+      });
+    }
+
+    // Sandbox / Developer mode fallback (Development only)
     console.log(`[Developer Mode] SMTP not configured. OTP for ${email} is: ${otp}`);
     return res.status(200).json({
       success: true,
@@ -92,7 +101,15 @@ export default async function handler(
     });
   } catch (error: any) {
     console.error("SMTP Mail Send Error:", error);
-    // If SMTP fails, we gracefully fallback to dev mode to prevent blocking evaluation
+    
+    if (isProduction) {
+      return res.status(500).json({
+        success: false,
+        message: `Failed to send email via SMTP: ${error?.message || "Unknown error"}. Please check your SMTP configuration in Vercel.`,
+      });
+    }
+
+    // If SMTP fails, we gracefully fallback to dev mode to prevent blocking evaluation (Development only)
     return res.status(200).json({
       success: true,
       message: `Failed to send email via SMTP, falling back to Dev Mode. Error: ${error?.message || "Unknown error"}`,
