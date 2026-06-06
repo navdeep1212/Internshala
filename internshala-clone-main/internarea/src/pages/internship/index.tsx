@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getApiUrl } from "@/utils/api";
 import {
   ArrowUpRight,
   Calendar,
@@ -29,7 +30,7 @@ const index = () => {
   useEffect(() => {
     const fetchdata = async () => {
       try {
-        const res = await axios.get("https://internshala-clone-y2p2.onrender.com/api/internship");     
+        const res = await axios.get(getApiUrl("/internship"));     
         setinternship(res.data);
         setfilteredInternships(res.data);
       } catch (error) {

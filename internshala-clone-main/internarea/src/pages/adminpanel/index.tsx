@@ -1,11 +1,11 @@
-import React from 'react'
 import { 
   Briefcase, 
   Mail, 
   Send,
   Users,
   BarChart,
-  Settings
+  Settings,
+  FileText
 } from 'lucide-react';
 import Link from 'next/link';
 const index = () => {
@@ -44,6 +44,13 @@ const index = () => {
           icon: Users,
           link: '/users',
           color: 'bg-orange-600',
+        },
+        {
+          title: 'Resumes & Billing',
+          description: 'Manage paid student resumes and verify receipts',
+          icon: FileText,
+          link: '/adminpanel/resumes',
+          color: 'bg-amber-600',
         },
         {
           title: 'Analytics',

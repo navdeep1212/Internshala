@@ -12,6 +12,7 @@ import Link from "next/link";
 import axios from "axios";
 import { selectuser } from "@/Feature/Userslice";
 import { useSelector } from "react-redux";
+import { getApiUrl } from "@/utils/api";
 const Applications = [
   {
     _id: "1",
@@ -63,7 +64,7 @@ const index = () => {
   useEffect(() => {
     const fetchdata = async () => {
       try {
-        const res = await axios.get("https://internshala-clone-y2p2.onrender.com/api/application");
+        const res = await axios.get(getApiUrl("/application"));
         setdata(res.data);
       } catch (error) {
         console.log(error);

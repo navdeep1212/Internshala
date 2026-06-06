@@ -2,14 +2,33 @@ const express = require("express");
 const router = express.Router();
 const application = require("../Model/Application");
 
+const Resume = require("../Model/Resume");
+
 router.post("/", async (req, res) => {
+  let userObj = req.body.user;
+  if (userObj && userObj.uid) {
+    try {
+      const latestResume = await Resume.findOne({ user_id: userObj.uid, pdfUrl: { $ne: null } })
+        .sort({ createdAt: -1 });
+      if (latestResume) {
+        userObj.resume_id = latestResume._id;
+        userObj.resume_url = latestResume.pdfUrl;
+        userObj.template_used = latestResume.templateUsed;
+        userObj.generated_at = latestResume.createdAt;
+      }
+    } catch (err) {
+      console.error("Error auto-attaching resume:", err);
+    }
+  }
+
   const applicationipdata = new application({
     company: req.body.company,
     category: req.body.category,
     coverLetter: req.body.coverLetter,
-    user: req.body.user,
+    user: userObj,
     Application: req.body.Application,
     body: req.body.body,
+    availability: req.body.availability,
   });
   await applicationipdata
     .save()
@@ -18,6 +37,7 @@ router.post("/", async (req, res) => {
     })
     .catch((error) => {
       console.log(error);
+      res.status(500).json({ error: "failed to save application" });
     });
 });
 router.get("/", async (req, res) => {
