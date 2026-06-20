@@ -29,6 +29,8 @@ const InternshipDetail = () => {
   const [latestResume, setLatestResume] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [subStatus, setSubStatus] = useState<{ plan: string; limit: number | null; used: number; remaining: number | null } | null>(null);
+  const [limitError, setLimitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -65,6 +67,22 @@ const InternshipDetail = () => {
     fetchLatestResume();
   }, [user]);
 
+  // Fetch subscription status
+  useEffect(() => {
+    if (!user) return;
+    const fetchSub = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        if (!token) return;
+        const res = await axios.get(getApiUrl("/resume/subscription/status"), {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setSubStatus(res.data);
+      } catch (_) {}
+    };
+    fetchSub();
+  }, [user]);
+
   const [availability, setAvailability] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [coverLetter, setCoverLetter] = useState("");
@@ -90,9 +108,14 @@ const InternshipDetail = () => {
       await axios.post(getApiUrl("/application"), applicationdata);
       toast.success("Application submitted successfully");
       router.push("/internship");
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to submit application");
+      if (error?.response?.status === 403 && error?.response?.data?.upgradeUrl) {
+        setLimitError(error.response.data.message || "Application limit reached.");
+        setIsModalOpen(false);
+      } else {
+        toast.error("Failed to submit application");
+      }
     }
   };
 
@@ -231,6 +254,20 @@ const InternshipDetail = () => {
                 </button>
               </div>
 
+              {/* Subscription Usage Badge */}
+              {user && subStatus && (
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold ${
+                  subStatus.remaining === 0
+                    ? 'bg-red-50 border-red-200 text-red-600'
+                    : 'bg-indigo-50 border-indigo-100 text-indigo-600'
+                }`}>
+                  <span>
+                    {subStatus.remaining === null ? '∞' : subStatus.used}/{subStatus.limit === null ? '∞' : subStatus.limit} apps used
+                  </span>
+                  <span className="text-[9px] uppercase tracking-wider opacity-70 capitalize">{subStatus.plan}</span>
+                </div>
+              )}
+
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-6 py-2.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer"
@@ -238,6 +275,22 @@ const InternshipDetail = () => {
                 Apply now
               </button>
             </div>
+
+            {/* Limit Exceeded Error Banner */}
+            {limitError && (
+              <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-red-700 font-bold text-sm">Application Limit Reached 🚫</p>
+                  <p className="text-red-600 text-xs mt-1">{limitError}</p>
+                </div>
+                <Link
+                  href="/subscription"
+                  className="shrink-0 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap"
+                >
+                  Upgrade Plan →
+                </Link>
+              </div>
+            )}
 
           </div>
 
@@ -410,7 +463,7 @@ const InternshipDetail = () => {
                   <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-between text-black">
                     <div>
                       <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
-                        ✨ Premium Resume Attached
+                        Premium Resume Attached
                       </span>
                       <p className="text-[10px] text-slate-500 mt-0.5 font-medium">
                         Template: {latestResume.templateUsed} • Generated on {new Date(latestResume.createdAt).toLocaleDateString()}

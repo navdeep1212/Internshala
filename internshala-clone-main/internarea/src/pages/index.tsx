@@ -62,7 +62,7 @@ export default function DashboardHome() {
         {/* Greetings Section */}
         <div className="mb-8">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-950 flex items-center gap-2">
-            Hi, {userName}! <span className="animate-bounce">👋</span>
+            Hi, {userName}!
           </h1>
           <p className="text-gray-500 text-lg mt-1 font-medium">
             Let's help you land your dream career.
@@ -83,7 +83,6 @@ export default function DashboardHome() {
                   {/* To-do Item 1 */}
                   <div className="p-4 rounded-xl bg-orange-50 border border-orange-100 hover:shadow-sm transition-shadow">
                     <div className="flex items-start gap-3">
-                      <span className="text-xl">👋</span>
                       <div>
                         <h3 className="text-sm font-bold text-orange-950">Resume premium access</h3>
                         <p className="text-xs text-orange-800 mt-1 font-medium">1 resource in progress</p>
@@ -94,7 +93,6 @@ export default function DashboardHome() {
                   {/* To-do Item 2 */}
                   <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 hover:shadow-sm transition-shadow">
                     <div className="flex items-start gap-3">
-                      <span className="text-xl">📞</span>
                       <div>
                         <h3 className="text-sm font-bold text-blue-950">Offline assessment pending</h3>
                         <p className="text-xs text-blue-800 mt-1 font-medium">Virtual Relationship Technology Partner</p>
@@ -127,7 +125,7 @@ export default function DashboardHome() {
             {/* 1. Trending Banners Swiper */}
             <div>
               <h2 className="text-xl font-extrabold text-gray-900 mb-4 flex items-center gap-2">
-                Trending on Internshala <span className="text-orange-500">🔥</span>
+                Trending on Internshala
               </h2>
               <Swiper
                 modules={[Navigation, Pagination, Autoplay]}
@@ -392,13 +390,13 @@ export default function DashboardHome() {
               <h2 className="text-2xl font-extrabold text-gray-900">Online Courses with Placement Assistance</h2>
               <div className="flex flex-wrap gap-2.5 mt-3 mb-6">
                 <span className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded-full flex items-center gap-1">
-                  🎓 Free demo class
+                  Free demo class
                 </span>
                 <span className="text-xs font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full flex items-center gap-1">
-                  🤝 Placement assistance
+                  Placement assistance
                 </span>
                 <span className="text-xs font-bold bg-purple-50 text-purple-600 px-3 py-1 rounded-full flex items-center gap-1">
-                  📜 Industry-recognized certificate
+                  Industry-recognized certificate
                 </span>
               </div>
 
@@ -431,7 +429,7 @@ export default function DashboardHome() {
                   <div>
                     <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 text-white h-32 flex items-center justify-center relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-lg"></div>
-                      <span className="text-4xl font-extrabold">📊</span>
+                      <span className="text-4xl font-extrabold">Data</span>
                     </div>
                     <div className="p-6">
                       <h3 className="text-md font-bold text-gray-900">Data Science Course</h3>
@@ -454,7 +452,7 @@ export default function DashboardHome() {
                   <div>
                     <div className="bg-gradient-to-r from-rose-500 to-pink-600 p-6 text-white h-32 flex items-center justify-center relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-lg"></div>
-                      <span className="text-4xl font-extrabold">📣</span>
+                      <span className="text-4xl font-extrabold">Marketing</span>
                     </div>
                     <div className="p-6">
                       <h3 className="text-md font-bold text-gray-900">Digital Marketing Course</h3>
@@ -550,13 +548,13 @@ export default function DashboardHome() {
               
               <div className="flex flex-wrap gap-2.5 mb-6">
                 <span className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded-full">
-                  📺 Live webinar sessions
+                  Live webinar sessions
                 </span>
                 <span className="text-xs font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full">
-                  💬 Ask questions directly
+                  Ask questions directly
                 </span>
                 <span className="text-xs font-bold bg-purple-50 text-purple-600 px-3 py-1 rounded-full">
-                  💰 Free to attend
+                  Free to attend
                 </span>
               </div>
 

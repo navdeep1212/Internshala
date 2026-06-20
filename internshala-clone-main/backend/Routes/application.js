@@ -1,11 +1,76 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const application = require("../Model/Application");
-
 const Resume = require("../Model/Resume");
+const User = require("../Model/User");
+
+// Plan limits constant (mirrors resume.js)
+const PLAN_LIMITS = {
+  free:   { limit: 1,        label: "Free" },
+  bronze: { limit: 3,        label: "Bronze" },
+  silver: { limit: 5,        label: "Silver" },
+  gold:   { limit: Infinity, label: "Gold" }
+};
+
+// Helper: check if two dates are in the same calendar month
+function isSameMonth(d1, d2) {
+  return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth();
+}
 
 router.post("/", async (req, res) => {
   let userObj = req.body.user;
+
+  // ── Subscription Limit Enforcement ──────────────────────
+  if (userObj && userObj.uid) {
+    try {
+      const isDbConnected = mongoose.connection.readyState === 1;
+      let userDoc = null;
+      if (isDbConnected) {
+        userDoc = await User.findOne({ uid: userObj.uid });
+      }
+
+      if (userDoc) {
+        const now = new Date();
+        const sub = userDoc.subscription || {};
+        const plan = sub.plan || "free";
+        const planInfo = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+        const lastReset = sub.lastResetAt ? new Date(sub.lastResetAt) : new Date(0);
+
+        // Auto-reset monthly count if it's a new calendar month
+        let applicationsUsed = sub.applicationsUsedThisMonth || 0;
+        if (!isSameMonth(lastReset, now)) {
+          applicationsUsed = 0;
+          await User.findOneAndUpdate(
+            { uid: userObj.uid },
+            {
+              "subscription.applicationsUsedThisMonth": 0,
+              "subscription.lastResetAt": now
+            }
+          );
+        }
+
+        // Check if plan limit is hit
+        if (planInfo.limit !== Infinity && applicationsUsed >= planInfo.limit) {
+          return res.status(403).json({
+            error: "Application limit reached for your subscription plan.",
+            plan,
+            planLabel: planInfo.label,
+            limit: planInfo.limit,
+            used: applicationsUsed,
+            message: `You have used ${applicationsUsed}/${planInfo.limit} applications this month on the ${planInfo.label} plan. Upgrade your plan to apply for more internships.`,
+            upgradeUrl: "/subscription"
+          });
+        }
+      }
+    } catch (limitErr) {
+      // Non-blocking — log but don't fail the entire request
+      console.error("Subscription limit check error:", limitErr);
+    }
+  }
+  // ────────────────────────────────────────────────────────
+
+  // Auto-attach latest resume
   if (userObj && userObj.uid) {
     try {
       const latestResume = await Resume.findOne({ user_id: userObj.uid, pdfUrl: { $ne: null } })
@@ -30,9 +95,23 @@ router.post("/", async (req, res) => {
     body: req.body.body,
     availability: req.body.availability,
   });
+
   await applicationipdata
     .save()
-    .then((data) => {
+    .then(async (data) => {
+      // Increment application count for the user
+      if (userObj && userObj.uid) {
+        try {
+          if (mongoose.connection.readyState === 1) {
+            await User.findOneAndUpdate(
+              { uid: userObj.uid },
+              { $inc: { "subscription.applicationsUsedThisMonth": 1 } }
+            );
+          }
+        } catch (incErr) {
+          console.error("Failed to increment application count:", incErr);
+        }
+      }
       res.send(data);
     })
     .catch((error) => {
@@ -40,6 +119,7 @@ router.post("/", async (req, res) => {
       res.status(500).json({ error: "failed to save application" });
     });
 });
+
 router.get("/", async (req, res) => {
   try {
     const data = await application.find();
@@ -49,6 +129,7 @@ router.get("/", async (req, res) => {
     res.status(404).json({ error: "internal server error" });
   }
 });
+
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -62,6 +143,7 @@ router.get("/:id", async (req, res) => {
     res.status(404).json({ error: "internal server error" });
   }
 });
+
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { action } = req.body;
@@ -89,4 +171,6 @@ router.put("/:id", async (req, res) => {
     res.status(500).json({ error: "internal server error" });
   }
 });
+
 module.exports = router;
+

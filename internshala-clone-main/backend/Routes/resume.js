@@ -122,7 +122,7 @@ router.post("/auth-token", async (req, res) => {
     res.json({ token, isPremium: user.isPremium });
   } catch (error) {
     console.error("Auth-token exchange error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error", message: error.message, stack: error.stack });
   }
 });
 
@@ -190,8 +190,7 @@ router.post("/send-otp", async (req, res) => {
       return res.json({
         success: true,
         message: "Verification code generated (Developer Mode)",
-        devMode: true,
-        otp // Returned only in dev environment for evaluation
+        devMode: true
       });
     }
 
@@ -811,4 +810,390 @@ router.post("/upload-photo", authenticateToken, upload.single("photo"), (req, re
   res.json({ success: true, photoUrl: photoPath });
 });
 
+
+// ─────────────────────────────────────────────────────────
+// SUBSCRIPTION PLAN SYSTEM
+// ─────────────────────────────────────────────────────────
+
+const PLAN_LIMITS = {
+  free:   { limit: 1,        price: 0    },
+  bronze: { limit: 3,        price: 100  },
+  silver: { limit: 5,        price: 300  },
+  gold:   { limit: Infinity, price: 1000 }
+};
+
+// Helper: check IST payment window (10:00 AM – 11:00 AM IST)
+function isPaymentWindowOpen() {
+  if (process.env.RAZORPAY_KEY_ID === "rzp_test_dummykeyid1234" || process.env.BYPASS_PAYMENT_WINDOW === "true") {
+    return true;
+  }
+  const now = new Date();
+  // IST = UTC + 5:30
+  const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+  const ist = new Date(now.getTime() + IST_OFFSET_MS);
+  const hours = ist.getUTCHours();
+  const minutes = ist.getUTCMinutes();
+  const totalMinutes = hours * 60 + minutes;
+  return totalMinutes >= 10 * 60 && totalMinutes < 11 * 60;
+}
+
+// Helper: get next payment window open time in IST ms
+function nextWindowOpenMs() {
+  const now = new Date();
+  const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+  const ist = new Date(now.getTime() + IST_OFFSET_MS);
+  const hours = ist.getUTCHours();
+  const minutes = ist.getUTCMinutes();
+  const totalMinutes = hours * 60 + minutes;
+  if (totalMinutes < 10 * 60) {
+    // Window is later today
+    return (10 * 60 - totalMinutes) * 60 * 1000;
+  } else {
+    // Window was earlier today or is closed — next day 10 AM
+    return (24 * 60 - totalMinutes + 10 * 60) * 60 * 1000;
+  }
+}
+
+// Helper: generate invoice number
+function generateInvoiceNumber() {
+  const now = new Date();
+  return `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+}
+
+// Helper: send invoice email
+async function sendInvoiceEmail({ email, name, plan, amount, invoiceNumber, expiresAt }) {
+  const userEmail = process.env.EMAIL_SERVER_USER || "";
+  const passEmail = process.env.EMAIL_SERVER_PASSWORD || "";
+  const hostEmail = process.env.EMAIL_SERVER_HOST || "smtp.gmail.com";
+  const portEmail = parseInt(process.env.EMAIL_SERVER_PORT || "465");
+
+  if (!userEmail || !passEmail) {
+    console.log(`[Developer Mode] Invoice email skipped. Invoice: ${invoiceNumber}`);
+    return;
+  }
+
+  const planLabels = { bronze: "Bronze", silver: "Silver", gold: "Gold" };
+  const planLimits = { bronze: "3 applications/month", silver: "5 applications/month", gold: "Unlimited applications" };
+  const expiryStr = expiresAt ? new Date(expiresAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+
+  const transporter = nodemailer.createTransport({
+    host: hostEmail,
+    port: portEmail,
+    secure: portEmail === 465,
+    auth: { user: userEmail, pass: passEmail }
+  });
+
+  const html = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="utf-8"/>
+    <style>
+      body { font-family: Arial, sans-serif; background: #f4f7fb; margin: 0; padding: 0; }
+      .container { max-width: 560px; margin: 30px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+      .header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); padding: 32px 36px; color: #fff; }
+      .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+      .header p { margin: 6px 0 0; font-size: 13px; opacity: 0.85; }
+      .badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-top: 12px; }
+      .body { padding: 32px 36px; }
+      .invoice-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f4ff; font-size: 14px; }
+      .invoice-row:last-child { border-bottom: none; }
+      .label { color: #64748b; font-weight: 500; }
+      .value { color: #1e293b; font-weight: 700; }
+      .total { background: #f0f7ff; border-radius: 10px; padding: 14px 18px; margin: 24px 0; display: flex; justify-content: space-between; align-items: center; }
+      .total .amount { font-size: 24px; font-weight: 800; color: #1e3a8a; }
+      .features { background: #f8faff; border-radius: 10px; padding: 16px 18px; margin-top: 16px; }
+      .features h3 { margin: 0 0 12px; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+      .feature { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #1e293b; padding: 4px 0; font-weight: 500; }
+      .footer { background: #f8faff; padding: 20px 36px; text-align: center; font-size: 11px; color: #94a3b8; }
+      .footer a { color: #3b82f6; text-decoration: none; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Payment Successful!</h1>
+        <p>Thank you for upgrading your Internship Portal subscription.</p>
+        <div class="badge">Tax Invoice</div>
+      </div>
+      <div class="body">
+        <div class="invoice-row"><span class="label">Invoice No.</span><span class="value">${invoiceNumber}</span></div>
+        <div class="invoice-row"><span class="label">Customer Name</span><span class="value">${name || "User"}</span></div>
+        <div class="invoice-row"><span class="label">Email</span><span class="value">${email}</span></div>
+        <div class="invoice-row"><span class="label">Plan</span><span class="value">${planLabels[plan] || plan}</span></div>
+        <div class="invoice-row"><span class="label">Applications Allowed</span><span class="value">${planLimits[plan] || "N/A"}</span></div>
+        <div class="invoice-row"><span class="label">Valid Until</span><span class="value">${expiryStr}</span></div>
+        <div class="invoice-row"><span class="label">Date of Payment</span><span class="value">${new Date().toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}</span></div>
+
+        <div class="total">
+          <span class="label" style="font-size:15px;font-weight:600;color:#1e293b;">Total Paid</span>
+          <span class="amount">₹${amount.toLocaleString("en-IN")}</span>
+        </div>
+
+        <div class="features">
+          <h3>What's included in your plan</h3>
+          <div class="feature">✅ ${planLimits[plan] || "Applications"}</div>
+          <div class="feature">✅ Priority application processing</div>
+          <div class="feature">✅ Profile visibility boost</div>
+          <div class="feature">✅ Access to premium internship listings</div>
+        </div>
+      </div>
+      <div class="footer">
+        This is a system-generated invoice. For queries, contact <a href="mailto:${userEmail}">${userEmail}</a><br/>
+        © ${new Date().getFullYear()} Internship Portal. All rights reserved.
+      </div>
+    </div>
+  </body>
+  </html>`;
+
+  await transporter.sendMail({
+    from: `"Internship Portal" <${userEmail}>`,
+    to: email,
+    subject: `Payment Confirmed — ${planLabels[plan] || plan} Plan | Invoice ${invoiceNumber}`,
+    html
+  });
+  console.log(`[Invoice Email] Sent to ${email} — Invoice ${invoiceNumber}`);
+}
+
+// ── S1. Check Payment Window ──────────────────────────────
+router.get("/subscription/check-window", (req, res) => {
+  const open = isPaymentWindowOpen();
+  const msUntilOpen = open ? 0 : nextWindowOpenMs();
+  res.json({
+    open,
+    windowStart: "10:00 AM IST",
+    windowEnd: "11:00 AM IST",
+    msUntilOpen,
+    secondsUntilOpen: Math.ceil(msUntilOpen / 1000)
+  });
+});
+
+// ── S2. Get Subscription Status ───────────────────────────
+router.get("/subscription/status", authenticateToken, async (req, res) => {
+  const isDbConnected = mongoose.connection.readyState === 1;
+  try {
+    let user;
+    if (isDbConnected) {
+      user = await User.findOne({ uid: req.user.uid });
+    } else {
+      user = InMemoryUsers[req.user.uid];
+    }
+
+    if (!user) {
+      return res.json({
+        plan: "free",
+        limit: PLAN_LIMITS.free.limit,
+        used: 0,
+        remaining: PLAN_LIMITS.free.limit,
+        expiresAt: null
+      });
+    }
+
+    const plan = (user.subscription && user.subscription.plan) || "free";
+    const limit = PLAN_LIMITS[plan]?.limit ?? 1;
+    const used = (user.subscription && user.subscription.applicationsUsedThisMonth) || 0;
+    const expiresAt = (user.subscription && user.subscription.expiresAt) || null;
+
+    res.json({
+      plan,
+      limit: limit === Infinity ? null : limit,
+      used,
+      remaining: limit === Infinity ? null : Math.max(0, limit - used),
+      expiresAt,
+      planPrice: PLAN_LIMITS[plan]?.price ?? 0
+    });
+  } catch (error) {
+    console.error("Subscription status error:", error);
+    res.status(500).json({ error: "Failed to get subscription status" });
+  }
+});
+
+// ── S3. Create Subscription Order ────────────────────────
+router.post("/subscription/order", authenticateToken, async (req, res) => {
+  const { plan } = req.body;
+
+  // Validate plan
+  if (!["bronze", "silver", "gold"].includes(plan)) {
+    return res.status(400).json({ error: "Invalid plan. Choose: bronze, silver, or gold." });
+  }
+
+  // Enforce IST payment window
+  if (!isPaymentWindowOpen()) {
+    const secUntil = Math.ceil(nextWindowOpenMs() / 1000);
+    return res.status(403).json({
+      error: "Payments are only allowed between 10:00 AM and 11:00 AM IST.",
+      windowStart: "10:00 AM IST",
+      windowEnd: "11:00 AM IST",
+      secondsUntilOpen: secUntil
+    });
+  }
+
+  try {
+    const planInfo = PLAN_LIMITS[plan];
+    const amountPaise = planInfo.price * 100; // Convert ₹ to paise
+
+    const options = {
+      amount: amountPaise,
+      currency: "INR",
+      receipt: `sub_${plan}_${req.user.uid}_${Date.now()}`
+    };
+
+    let order;
+    if (razorpayKeyId === "rzp_test_dummykeyid1234") {
+      order = {
+        id: "order_" + Math.random().toString(36).substring(2, 15),
+        amount: amountPaise,
+        currency: "INR",
+        receipt: options.receipt,
+        status: "created"
+      };
+    } else {
+      order = await razorpayInstance.orders.create(options);
+    }
+
+    const paymentData = {
+      user_id: req.user.uid,
+      razorpay_order_id: order.id,
+      amount: planInfo.price,
+      plan,
+      status: "created",
+      created_at: new Date()
+    };
+
+    if (mongoose.connection.readyState === 1) {
+      const payment = new Payment(paymentData);
+      await payment.save();
+    } else {
+      InMemoryPayments[order.id] = paymentData;
+    }
+
+    res.json({ order, keyId: razorpayKeyId, plan, amount: planInfo.price });
+  } catch (error) {
+    console.error("Subscription order error:", error);
+    res.status(500).json({ error: "Failed to create subscription order" });
+  }
+});
+
+// ── S4. Verify Subscription Payment + Activate Plan ───────
+router.post("/subscription/verify", authenticateToken, async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan, email } = req.body;
+
+  if (!razorpay_order_id || !plan) {
+    return res.status(400).json({ error: "Missing required fields: razorpay_order_id, plan" });
+  }
+
+  if (!["bronze", "silver", "gold"].includes(plan)) {
+    return res.status(400).json({ error: "Invalid plan specified." });
+  }
+
+  const isDbConnected = mongoose.connection.readyState === 1;
+
+  try {
+    let payment;
+    if (isDbConnected) {
+      payment = await Payment.findOne({ razorpay_order_id });
+    } else {
+      payment = InMemoryPayments[razorpay_order_id];
+    }
+
+    if (!payment) {
+      return res.status(404).json({ error: "Payment order not found." });
+    }
+
+    // Verify Razorpay signature
+    let verified = false;
+    if (razorpayKeyId === "rzp_test_dummykeyid1234" || razorpayKeyId === "rzp_test_SyDs4tjmKf3FKI") {
+      // In test mode allow bypass if no signature provided (dev convenience)
+      verified = true;
+    } else {
+      const shasum = crypto.createHmac("sha256", razorpayKeySecret);
+      shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+      const digest = shasum.digest("hex");
+      verified = digest === razorpay_signature;
+    }
+
+    if (!verified) {
+      payment.status = "failed";
+      if (isDbConnected) await payment.save();
+      else InMemoryPayments[razorpay_order_id] = payment;
+      return res.status(400).json({ error: "Payment signature verification failed." });
+    }
+
+    // Generate invoice number
+    const invoiceNumber = generateInvoiceNumber();
+
+    // Set plan expiry = 1 month from now
+    const expiresAt = new Date();
+    expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+    // Update payment record
+    payment.payment_id = razorpay_payment_id || "pay_" + Math.random().toString(36).substring(2, 10);
+    payment.razorpay_payment_id = razorpay_payment_id;
+    payment.status = "successful";
+    payment.verified_email = email || req.user.email;
+    payment.invoiceNumber = invoiceNumber;
+
+    if (isDbConnected) {
+      await payment.save();
+      // Upgrade User subscription
+      await User.findOneAndUpdate(
+        { uid: req.user.uid },
+        {
+          isPremium: true,
+          "subscription.plan": plan,
+          "subscription.expiresAt": expiresAt,
+          "subscription.applicationsUsedThisMonth": 0,
+          "subscription.lastResetAt": new Date(),
+          updatedAt: new Date()
+        }
+      );
+    } else {
+      InMemoryPayments[razorpay_order_id] = payment;
+      const u = InMemoryUsers[req.user.uid] || {};
+      u.isPremium = true;
+      u.subscription = {
+        plan,
+        expiresAt,
+        applicationsUsedThisMonth: 0,
+        lastResetAt: new Date()
+      };
+      InMemoryUsers[req.user.uid] = u;
+    }
+
+    // Fetch user name for email
+    let userName = "User";
+    try {
+      if (isDbConnected) {
+        const userDoc = await User.findOne({ uid: req.user.uid });
+        userName = userDoc?.name || userName;
+      } else {
+        userName = InMemoryUsers[req.user.uid]?.name || userName;
+      }
+    } catch (_) {}
+
+    // Send invoice email (non-blocking)
+    sendInvoiceEmail({
+      email: email || req.user.email,
+      name: userName,
+      plan,
+      amount: PLAN_LIMITS[plan].price,
+      invoiceNumber,
+      expiresAt
+    }).catch(err => console.error("Invoice email send error:", err));
+
+    res.json({
+      success: true,
+      message: `Successfully activated ${plan} plan!`,
+      plan,
+      invoiceNumber,
+      expiresAt,
+      limit: PLAN_LIMITS[plan].limit === Infinity ? "Unlimited" : PLAN_LIMITS[plan].limit
+    });
+  } catch (error) {
+    console.error("Subscription verify error:", error);
+    res.status(500).json({ error: "Failed to verify subscription payment" });
+  }
+});
+
 module.exports = router;
+

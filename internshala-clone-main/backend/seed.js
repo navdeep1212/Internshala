@@ -1,7 +1,45 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 require("dotenv").config();
 const Internship = require("./Model/Internship");
 const Job = require("./Model/Job");
+const User = require("./Model/User");
+
+// Helper to hash passwords with SHA-256
+function hashPassword(password) {
+  return crypto.createHash("sha256").update(password).digest("hex");
+}
+
+// Mock users for testing the Forgot Password feature
+const users = [
+  {
+    uid: "seed_user_1",
+    email: "testuser@example.com",
+    phone: "1234567890",
+    name: "Test User",
+    password: hashPassword("TestPassword"),
+    isPremium: false,
+    lastPasswordResetRequest: null
+  },
+  {
+    uid: "seed_user_2",
+    email: "jane@example.com",
+    phone: "9876543210",
+    name: "Jane Doe",
+    password: hashPassword("JanePassword"),
+    isPremium: true,
+    lastPasswordResetRequest: null
+  },
+  {
+    uid: "seed_user_3",
+    email: "rahul@example.com",
+    phone: "5551234567",
+    name: "Rahul Kumar",
+    password: hashPassword("RahulPassword"),
+    isPremium: false,
+    lastPasswordResetRequest: null
+  }
+];
 
 const internships = [
   {
@@ -134,9 +172,10 @@ async function seed() {
 
   try {
     // Drop existing collections to refresh
-    console.log("Clearing existing internships and jobs...");
+    console.log("Clearing existing internships, jobs, and users...");
     await Internship.deleteMany({});
     await Job.deleteMany({});
+    await User.deleteMany({});
 
     // Seed new entries
     console.log("Seeding internships...");
@@ -144,6 +183,9 @@ async function seed() {
     
     console.log("Seeding jobs...");
     await Job.insertMany(jobs);
+
+    console.log("Seeding users...");
+    await User.insertMany(users);
 
     console.log("Database seeded successfully!");
   } catch (error) {

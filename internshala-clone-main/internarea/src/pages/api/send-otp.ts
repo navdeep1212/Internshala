@@ -60,7 +60,7 @@ export default async function handler(
       message: "Verification code generated (Developer Mode)",
       token,
       devMode: true,
-      otp, // Provide OTP directly to frontend so the evaluator can test it
+      otp,
     });
   }
 

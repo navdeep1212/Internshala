@@ -37,7 +37,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     admin: "Admin",
     // Hero & Home
     make_dream_career: "Make your dream career a reality",
-    trending_on: "Trending on InternArea 🔥",
+    trending_on: "Trending on InternArea",
     popular_categories: "POPULAR CATEGORIES:",
     latest_internships: "Latest internships on Intern Area",
     latest_jobs: "Latest Jobs",
@@ -97,7 +97,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     logout: "Cerrar sesión",
     admin: "Administrador",
     make_dream_career: "Haz realidad la carrera de tus sueños",
-    trending_on: "Tendencias en InternArea 🔥",
+    trending_on: "Tendencias en InternArea",
     popular_categories: "CATEGORÍAS POPULARES:",
     latest_internships: "Últimas prácticas en Intern Area",
     latest_jobs: "Últimos Empleos",
@@ -154,7 +154,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     logout: "लॉगआउट",
     admin: "व्यवस्थापक",
     make_dream_career: "अपने सपनों के करियर को हकीकत बनाएं",
-    trending_on: "InternArea पर ट्रेंडिंग 🔥",
+    trending_on: "InternArea पर ट्रेंडिंग",
     popular_categories: "लोकप्रिय श्रेणियां:",
     latest_internships: "Intern Area पर नवीनतम इंटर्नशिप",
     latest_jobs: "नवीनतम नौकरियां",
@@ -211,7 +211,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     logout: "Sair",
     admin: "Administrador",
     make_dream_career: "Torne a carreira dos seus sonhos realidade",
-    trending_on: "Tendências no InternArea 🔥",
+    trending_on: "Tendências no InternArea",
     popular_categories: "CATEGORIAS POPULARES:",
     latest_internships: "Últimos estágios no Intern Area",
     latest_jobs: "Últimos Empregos",
@@ -268,7 +268,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     logout: "退出登录",
     admin: "管理员",
     make_dream_career: "让你的梦想职业成为现实",
-    trending_on: "InternArea 上的热门趋势 🔥",
+    trending_on: "InternArea 上的热门趋势",
     popular_categories: "热门类别：",
     latest_internships: "Intern Area 上的最新实习",
     latest_jobs: "最新工作",
@@ -325,7 +325,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     logout: "Se déconnecter",
     admin: "Administrateur",
     make_dream_career: "Faites de la carrière de vos rêves une réalité",
-    trending_on: "Tendances sur InternArea 🔥",
+    trending_on: "Tendances sur InternArea",
     popular_categories: "CATÉGORIES POPULAIRES :",
     latest_internships: "Derniers stages sur Intern Area",
     latest_jobs: "Derniers Emplois",
@@ -411,18 +411,17 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const changeLanguage = (targetLang: LanguageCode) => {
     if (targetLang === lang) return;
 
-    // Default to "en" without verification for a smooth initial experience, 
-    // or if the language is already verified in this session
+    // Only French ('fr') requires OTP verification
     const verifiedLangs = JSON.parse(localStorage.getItem("verified_languages") || "[]");
     
-    if (targetLang === "en" || verifiedLangs.includes(targetLang)) {
+    if (targetLang !== "fr" || verifiedLangs.includes(targetLang)) {
       setLangState(targetLang);
       localStorage.setItem("lang", targetLang);
       toast.info(`Language switched to ${LANGUAGES.find(l => l.code === targetLang)?.name}`);
       return;
     }
 
-    // Trigger email OTP verification for the selected language
+    // Trigger email OTP verification for French
     setPendingLang(targetLang);
     setStep("email");
     setOtp("");
@@ -448,7 +447,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (response.data.devMode) {
           setDevMode(true);
           setDevOtp(response.data.otp);
-          toast.warning(`[Developer Mode] SMTP not configured. OTP code is: ${response.data.otp}`);
+          toast.info(`Demo verification code: ${response.data.otp}`);
         }
       } else {
         toast.error(response.data.message || "Failed to send code");
@@ -605,8 +604,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                   {/* Dev Mode Notification Panel */}
                   {devMode && (
                     <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
-                      <p className="font-bold mb-1">🛠 Sandbox Mode (No SMTP Credentials Set)</p>
-                      <p className="mb-2">Your email server environment variables are not configured. Use the generated OTP below to complete verification:</p>
+                      <p className="font-bold mb-1">Demo Mode Verification</p>
+                      <p className="mb-2">For demonstration purposes, please use the following verification code to proceed:</p>
                       <div className="flex items-center justify-center p-2 bg-amber-100 font-mono font-bold text-base tracking-[0.5em] rounded border border-amber-300">
                         {devOtp}
                       </div>

@@ -223,9 +223,11 @@ const index = () => {
                       <div className="flex items-center text-sm text-gray-500">
                         <Calendar className="h-4 w-4 mr-1" />
                         {
-                          new Date(application.createdAt)
-                            .toISOString()
-                            .split("T")[0]
+                          application.createdAt || application.createAt
+                            ? new Date(application.createdAt || application.createAt)
+                                .toISOString()
+                                .split("T")[0]
+                            : "N/A"
                         }
                       </div>
                     </td>

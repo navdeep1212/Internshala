@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getApiUrl } from "@/utils/api";
 import { Building2, Calendar, FileText, Loader2, User } from "lucide-react";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
@@ -13,7 +14,7 @@ const index = () => {
       try {
         setloading(true);
         const res = await axios.get(
-          `https://internshala-clone-y2p2.onrender.com/api/application/${id}`
+          getApiUrl(`/application/${id}`)
         );
         console.log(res.data);
         setdata(res.data);
@@ -99,11 +100,13 @@ const index = () => {
                     </span>
                   </div>
                   <p className="text-gray-900 font-semibold">
-                    {new Date(data.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                    {data.createdAt || data.createAt
+                      ? new Date(data.createdAt || data.createAt).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "N/A"}
                   </p>
                 </div>
 

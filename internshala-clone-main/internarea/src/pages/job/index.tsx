@@ -13,9 +13,12 @@ import {
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
+import { useRouter } from "next/router";
 
 const index = () => {
   const { t } = useLanguage();
+  const router = useRouter();
+  const { search } = router.query;
   const [filteredjob, setfilteredjobs] = useState<any>([]);
   const [isFiltervisible, setisFiltervisible] = useState(false);
   const [filter, setfilters] = useState({
@@ -42,17 +45,26 @@ const index = () => {
   }, []);
 
   useEffect(() => {
+    const searchQuery = typeof search === "string" ? search.toLowerCase() : "";
     const filtered = filteredJobs.filter((job: any) => {
-      const matchesCategory = job.category
+      const matchesCategory = (job.category || "")
         .toLowerCase()
         .includes(filter.category.toLowerCase());
-      const matchesLocation = job.location
+      const matchesLocation = (job.location || "")
         .toLowerCase()
         .includes(filter.location.toLowerCase());
-      return matchesCategory && matchesLocation;
+      
+      const matchesSearch = searchQuery
+        ? (job.title || "").toLowerCase().includes(searchQuery) ||
+          (job.company || "").toLowerCase().includes(searchQuery) ||
+          (job.category || "").toLowerCase().includes(searchQuery) ||
+          (job.location || "").toLowerCase().includes(searchQuery)
+        : true;
+
+      return matchesCategory && matchesLocation && matchesSearch;
     });
     setfilteredjobs(filtered);
-  }, [filter, filteredJobs]);
+  }, [filter, filteredJobs, search]);
 
   const handlefilterchange = (e: any) => {
     const { name, value, type, checked } = e.target;
@@ -191,10 +203,27 @@ const index = () => {
                 <span> {t("show_filters")}</span>
               </button>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
-              <p className="text-center font-semibold text-black">
+            <div className="bg-white p-4 rounded-lg shadow-sm mb-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+              <p className="font-semibold text-black">
                 {filteredjob.length} {t("jobs_found")}
               </p>
+              {search && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full font-bold">
+                    Search: "{search}"
+                  </span>
+                  <button
+                    onClick={() => {
+                      const newQuery = { ...router.query };
+                      delete newQuery.search;
+                      router.push({ pathname: router.pathname, query: newQuery });
+                    }}
+                    className="text-xs text-red-500 hover:text-red-700 font-bold cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
             </div>
             <div className="space-y-4">
               {filteredjob.map((job: any) => (

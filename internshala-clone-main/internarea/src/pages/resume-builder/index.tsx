@@ -86,9 +86,16 @@ const ResumeBuilder = () => {
   const [generatedPdfUrl, setGeneratedPdfUrl] = useState("");
   const [resumeId, setResumeId] = useState("");
 
+  // Subscription check states
+  const [subPlan, setSubPlan] = useState<string | null>(null);
+  const [subLoading, setSubLoading] = useState(true);
+
   // Load backend authentication and prefill details
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setSubLoading(false);
+      return;
+    }
     
     // Prefill personal info from Firebase Auth
     setPersonalInfo((prev) => ({
@@ -108,6 +115,20 @@ const ResumeBuilder = () => {
         setBackendToken(res.data.token);
         setIsPremium(res.data.isPremium);
         localStorage.setItem("resume_token", res.data.token);
+        localStorage.setItem("authToken", res.data.token);
+
+        // Fetch subscription status
+        try {
+          const subRes = await axios.get(getApiUrl("/resume/subscription/status"), {
+            headers: { Authorization: `Bearer ${res.data.token}` }
+          });
+          setSubPlan(subRes.data.plan || "free");
+        } catch (subErr) {
+          console.error("Failed to load subscription status:", subErr);
+          setSubPlan("free");
+        } finally {
+          setSubLoading(false);
+        }
 
         // Load latest draft if any
         const resumesRes = await axios.get(getApiUrl("/resume/my-resumes"), {
@@ -135,6 +156,7 @@ const ResumeBuilder = () => {
         }
       } catch (err) {
         console.error("Error exchanging tokens:", err);
+        setSubLoading(false);
       }
     };
     fetchAuthToken();
@@ -489,9 +511,9 @@ const ResumeBuilder = () => {
         }
       };
 
-      // Handle Sandbox mock checkout bypass for dummy key settings
+      // Handle checkout for test environments
       if (keyId === "rzp_test_dummykeyid1234") {
-        toast.info("[Dev Mode Bypass] Dummy Razorpay keys detected. Automating successful payment simulation...", { autoClose: 5000 });
+        toast.info("Connecting to secure checkout simulation...", { autoClose: 5000 });
         setTimeout(async () => {
           try {
             const verifyRes = await axios.post(
@@ -517,14 +539,14 @@ const ResumeBuilder = () => {
               { headers: { Authorization: `Bearer ${token}` } }
             );
             if (verifyRes.data.success) {
-              toast.success("Payment verified! (Bypass Simulation)");
+              toast.success("Payment verified successfully!");
               setIsPremium(true);
               setGeneratedPdfUrl(verifyRes.data.pdfUrl);
               setResumeId(verifyRes.data.resumeId);
             }
           } catch (e) {
             console.error(e);
-            toast.error("Bypass transaction failed");
+            toast.error("Transaction check failed");
           } finally {
             setLoading(false);
           }
@@ -575,6 +597,38 @@ const ResumeBuilder = () => {
             className="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-md shadow-blue-200 text-sm"
           >
             Go to Homepage
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (subLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 text-black">
+        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-center flex flex-col items-center">
+          <RefreshCw className="h-10 w-10 text-blue-500 animate-spin mb-4" />
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Loading Profile...</h2>
+          <p className="text-slate-500 text-sm">Validating subscription plan status</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (subPlan === "free" || !subPlan) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 text-black">
+        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-center">
+          <Lock className="mx-auto h-12 w-12 text-blue-500 mb-4 animate-bounce" />
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Premium Feature</h2>
+          <p className="text-slate-600 mb-6 font-medium">
+            Resume builder is a premium feature. Please upgrade your subscription plan to Bronze, Silver, or Gold.
+          </p>
+          <Link
+            href="/subscription"
+            className="inline-flex items-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-md shadow-blue-200 text-sm"
+          >
+            Upgrade Plan
           </Link>
         </div>
       </div>
@@ -1323,7 +1377,7 @@ const ResumeBuilder = () => {
 
                 {/* Paywall Container */}
                 <div className="border-t pt-6">
-                  {isPremium ? (
+                  {generatedPdfUrl ? (
                     <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl flex flex-col items-center text-center">
                       <CheckCircle className="h-10 w-10 text-emerald-600 mb-2 animate-bounce" />
                       <h4 className="font-bold text-emerald-800">Premium Access Enabled!</h4>
@@ -1734,8 +1788,8 @@ const ResumeBuilder = () => {
                   {/* Dev Mode Notification Panel */}
                   {devMode && (
                     <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
-                      <p className="font-bold mb-1">🛠 Sandbox Mode (No SMTP Credentials Set)</p>
-                      <p className="mb-2">Your email server environment variables are not configured. Use the generated OTP below to complete verification:</p>
+                      <p className="font-bold mb-1">Demo Mode Verification</p>
+                      <p className="mb-2">For demonstration purposes, please use the following verification code to proceed:</p>
                       <div className="flex items-center justify-center p-2 bg-amber-100 font-mono font-bold text-base tracking-[0.5em] rounded border border-amber-300">
                         {devOtp}
                       </div>

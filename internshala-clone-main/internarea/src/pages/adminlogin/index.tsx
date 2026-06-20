@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getApiUrl } from "@/utils/api";
 import { User, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
@@ -27,7 +28,7 @@ const index = () => {
     try {
       setisloading(true);
       const res = await axios.post(
-        "https://internshala-clone-y2p2.onrender.com/api/admin/adminlogin",
+        getApiUrl("/admin/adminlogin"),
         formadata
       );
       toast.success("logged in successfuly");

@@ -401,7 +401,7 @@ const JobDetail = () => {
                   <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-between text-black">
                     <div>
                       <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
-                        ✨ Premium Resume Attached
+                        Premium Resume Attached
                       </span>
                       <p className="text-[10px] text-slate-500 mt-0.5 font-medium">
                         Template: {latestResume.templateUsed} • Generated on {new Date(latestResume.createdAt).toLocaleDateString()}
