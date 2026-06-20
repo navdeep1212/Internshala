@@ -1,0 +1,22 @@
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Env example files
+.env.example
+
+# Dependency directories
+node_modules/
+dist/
+build/
+.next/
+out/
+
+# IDEs and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
