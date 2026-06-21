@@ -1,5 +1,5 @@
 import { selectuser } from "@/Feature/Userslice";
-import { getApiUrl } from "@/utils/api";
+import { getApiUrl, getBackendBaseUrl } from "@/utils/api";
 import axios from "axios";
 import {
   Briefcase,
@@ -138,7 +138,7 @@ const ResumeBuilder = () => {
           const draft = resumesRes.data[0];
           setPersonalInfo(draft.personalInfo || {});
           if (draft.personalInfo?.photoUrl) {
-            setPhotoPreview(draft.personalInfo.photoUrl.startsWith("http") ? draft.personalInfo.photoUrl : `http://localhost:5000${draft.personalInfo.photoUrl}`);
+            setPhotoPreview(draft.personalInfo.photoUrl.startsWith("http") ? draft.personalInfo.photoUrl : `${getBackendBaseUrl()}${draft.personalInfo.photoUrl}`);
           }
           setEducation(draft.education || []);
           setSkills(draft.skills || []);

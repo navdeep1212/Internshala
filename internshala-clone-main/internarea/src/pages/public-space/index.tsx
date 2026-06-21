@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { selectuser } from "@/Feature/Userslice";
 import axios from "axios";
-import { getApiUrl } from "@/utils/api";
+import { getApiUrl, getBackendBaseUrl } from "@/utils/api";
 import { toast } from "react-toastify";
 import {
   Heart,
@@ -83,8 +83,7 @@ interface PostingInfo {
 }
 
 // ─── API Base ────────────────────────────────────────────────────────────────
-const BACKEND_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://localhost:5000";
+const BACKEND_BASE = getBackendBaseUrl();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string): string {
