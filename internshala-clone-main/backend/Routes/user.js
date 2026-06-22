@@ -488,6 +488,53 @@ router.post("/change-password", async (req, res) => {
 });
 
 /**
+ * GET /api/user/test-email
+ * Diagnostic endpoint to test SMTP settings on the hosted server
+ */
+router.get("/test-email", async (req, res) => {
+  const userEmail = process.env.EMAIL_SERVER_USER || "";
+  const passEmail = process.env.EMAIL_SERVER_PASSWORD || "";
+  const hostEmail = process.env.EMAIL_SERVER_HOST || "smtp.gmail.com";
+  const portEmail = parseInt(process.env.EMAIL_SERVER_PORT || "465");
+
+  if (!userEmail || !passEmail) {
+    return res.status(400).json({
+      success: false,
+      message: "SMTP credentials not configured in environment variables."
+    });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: hostEmail,
+      port: portEmail,
+      secure: portEmail === 465,
+      auth: { user: userEmail, pass: passEmail }
+    });
+
+    const mailOptions = {
+      from: `"Internship Portal Test" <${userEmail}>`,
+      to: userEmail,
+      subject: "SMTP Connection Test",
+      text: "This is a test email to verify SMTP configuration on the hosted server."
+    };
+
+    await transporter.sendMail(mailOptions);
+    return res.json({
+      success: true,
+      message: "Test email sent successfully to " + userEmail
+    });
+  } catch (error) {
+    console.error("SMTP Test Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
+/**
  * POST /api/user/login
  *
  * Body: { email, password }
