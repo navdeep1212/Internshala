@@ -398,6 +398,17 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (savedLang && translations[savedLang]) {
       setLangState(savedLang);
     }
+    
+    // Ensure "en" (English) is in verified languages by default
+    try {
+      const verifiedLangs = JSON.parse(localStorage.getItem("verified_languages") || "[]");
+      if (!verifiedLangs.includes("en")) {
+        verifiedLangs.push("en");
+        localStorage.setItem("verified_languages", JSON.stringify(verifiedLangs));
+      }
+    } catch (e) {
+      localStorage.setItem("verified_languages", JSON.stringify(["en"]));
+    }
   }, []);
 
   // Pre-fill email when user profile changes
@@ -411,17 +422,17 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const changeLanguage = (targetLang: LanguageCode) => {
     if (targetLang === lang) return;
 
-    // Only French ('fr') requires OTP verification
     const verifiedLangs = JSON.parse(localStorage.getItem("verified_languages") || "[]");
     
-    if (targetLang !== "fr" || verifiedLangs.includes(targetLang)) {
+    // All languages except English ('en') require OTP verification unless already verified
+    if (targetLang === "en" || verifiedLangs.includes(targetLang)) {
       setLangState(targetLang);
       localStorage.setItem("lang", targetLang);
       toast.info(`Language switched to ${LANGUAGES.find(l => l.code === targetLang)?.name}`);
       return;
     }
 
-    // Trigger email OTP verification for French
+    // Trigger email OTP verification for the selected language
     setPendingLang(targetLang);
     setStep("email");
     setOtp("");
