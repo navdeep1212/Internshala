@@ -537,6 +537,66 @@ router.get("/test-email", async (req, res) => {
 });
 
 /**
+ * GET /api/user/test-ports
+ * Diagnostic endpoint to check outbound TCP connectivity on SMTP ports
+ */
+router.get("/test-ports", async (req, res) => {
+  const net = require("net");
+
+  function checkPort(host, port, timeout = 3000) {
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      let status = "closed";
+
+      socket.setTimeout(timeout);
+
+      socket.connect(port, host, () => {
+        status = "open";
+        socket.end();
+      });
+
+      socket.on("error", (err) => {
+        status = "error: " + err.message;
+      });
+
+      socket.on("timeout", () => {
+        status = "timeout";
+        socket.destroy();
+      });
+
+      socket.on("close", () => {
+        resolve({ host, port, status });
+      });
+    });
+  }
+
+  const tests = [
+    { host: "smtp.gmail.com", port: 465 },
+    { host: "smtp.gmail.com", port: 587 },
+    { host: "smtp-relay.brevo.com", port: 587 },
+    { host: "smtp-relay.brevo.com", port: 2525 },
+    { host: "smtp.sendgrid.net", port: 587 },
+    { host: "smtp.sendgrid.net", port: 2525 },
+    { host: "google.com", port: 80 },
+    { host: "google.com", port: 443 }
+  ];
+
+  try {
+    const results = await Promise.all(tests.map(t => checkPort(t.host, t.port)));
+    return res.json({
+      success: true,
+      results
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+
+/**
  * POST /api/user/login
  *
  * Body: { email, password }
