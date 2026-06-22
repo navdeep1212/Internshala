@@ -6,6 +6,7 @@ const path = require("path");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const nodemailer = require("nodemailer");
+const { sendEmail } = require("../utils/email");
 const Razorpay = require("razorpay");
 const PDFDocument = require("pdfkit");
 const mongoose = require("mongoose");
@@ -178,40 +179,18 @@ router.post("/send-otp", async (req, res) => {
       InMemoryOTPs[email] = record;
     }
 
-    // Send via email using Nodemailer
-    const userEmail = process.env.EMAIL_SERVER_USER || "";
-    const passEmail = process.env.EMAIL_SERVER_PASSWORD || "";
-    const hostEmail = process.env.EMAIL_SERVER_HOST || "smtp.gmail.com";
-    const portEmail = parseInt(process.env.EMAIL_SERVER_PORT || "465");
-
-    if (!userEmail || !passEmail) {
-      // Dev mode fallback
-      console.log(`[Developer Mode] SMTP not configured. OTP for ${email} is: ${otp}`);
-      return res.json({
-        success: true,
-        message: "Verification code generated (Developer Mode)",
-        devMode: true
-      });
-    }
-
-    const transporter = nodemailer.createTransport({
-      host: hostEmail,
-      port: portEmail,
-      secure: portEmail === 465,
-      auth: { user: userEmail, pass: passEmail },
-      family: 4
-    });
-
-    const mailOptions = {
-      from: `"Internship Portal" <${userEmail}>`,
+    // Send via email using email utility
+    const emailResult = await sendEmail({
       to: email,
       subject: "Verify Your Resume Purchase",
       text: `Hello,\n\nYour OTP for Resume Builder verification is:\n\n${otp}\n\nThis OTP will expire in 5 minutes.\n\nIf you did not request this, please ignore this email.\n\nRegards,\nInternship Portal Team`
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
-    console.log(`[SMTP Success] Sent OTP to ${email}`);
-    res.json({ success: true, message: "Verification code sent to email" });
+    res.json({
+      success: true,
+      message: "Verification code sent to email",
+      devMode: emailResult && emailResult.method === "console"
+    });
 
   } catch (error) {
     console.error("Send-otp error:", error);

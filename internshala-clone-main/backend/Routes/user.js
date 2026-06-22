@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require("crypto");
 const mongoose = require("mongoose");
 const nodemailer = require("nodemailer");
+const { sendEmail } = require("../utils/email");
 const User = require("../Model/User");
 const LoginHistory = require("../Model/LoginHistory");
 
@@ -219,43 +220,17 @@ router.post("/forgot-password", async (req, res) => {
       };
     }
 
-    // Setup nodemailer
-    const userEmail = process.env.EMAIL_SERVER_USER || "";
-    const passEmail = process.env.EMAIL_SERVER_PASSWORD || "";
-    const hostEmail = process.env.EMAIL_SERVER_HOST || "smtp.gmail.com";
-    const portEmail = parseInt(process.env.EMAIL_SERVER_PORT || "465");
-
-    if (!userEmail || !passEmail) {
-      // Dev mode fallback
-      console.log(`[Developer Mode] SMTP not configured. Reset OTP code for ${user.email} is: ${code}`);
-      return res.json({
-        success: true,
-        message: "Verification code generated successfully (Developer Mode).",
-        devMode: true
-      });
-    }
-
-    const transporter = nodemailer.createTransport({
-      host: hostEmail,
-      port: portEmail,
-      secure: portEmail === 465,
-      auth: { user: userEmail, pass: passEmail },
-      family: 4
-    });
-
-    const mailOptions = {
-      from: `"Internship Portal" <${userEmail}>`,
+    // Setup and send email via email utility
+    const emailResult = await sendEmail({
       to: user.email,
       subject: "Reset Your Password - Verification Code",
       text: `Hello,\n\nYou requested a password reset for your Internship Portal account. Your 6-digit verification code is:\n\n${code}\n\nThis code will expire in 10 minutes.\n\nIf you did not request this reset, please ignore this email and your password will remain unchanged.\n\nRegards,\nInternship Portal Team`
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`[SMTP Success] Sent password reset verification code to ${user.email}`);
+    });
 
     return res.json({
       success: true,
-      message: "A verification code has been sent to your registered email address."
+      message: "A verification code has been sent to your registered email address.",
+      devMode: emailResult && emailResult.method === "console"
     });
   } catch (error) {
     console.error("Forgot-password error:", error);
@@ -494,40 +469,20 @@ router.post("/change-password", async (req, res) => {
  */
 router.get("/test-email", async (req, res) => {
   const userEmail = process.env.EMAIL_SERVER_USER || "";
-  const passEmail = process.env.EMAIL_SERVER_PASSWORD || "";
-  const hostEmail = process.env.EMAIL_SERVER_HOST || "smtp.gmail.com";
-  const portEmail = parseInt(process.env.EMAIL_SERVER_PORT || "465");
-
-  if (!userEmail || !passEmail) {
-    return res.status(400).json({
-      success: false,
-      message: "SMTP credentials not configured in environment variables."
-    });
-  }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host: hostEmail,
-      port: portEmail,
-      secure: portEmail === 465,
-      auth: { user: userEmail, pass: passEmail },
-      family: 4
-    });
-
-    const mailOptions = {
-      from: `"Internship Portal Test" <${userEmail}>`,
-      to: userEmail,
+    const emailResult = await sendEmail({
+      to: userEmail || "chaurasianavdeep2004@gmail.com",
       subject: "SMTP Connection Test",
-      text: "This is a test email to verify SMTP configuration on the hosted server."
-    };
-
-    await transporter.sendMail(mailOptions);
+      text: "This is a test email to verify configuration on the hosted server."
+    });
     return res.json({
       success: true,
-      message: "Test email sent successfully to " + userEmail
+      message: "Test email initiated.",
+      result: emailResult
     });
   } catch (error) {
-    console.error("SMTP Test Error:", error);
+    console.error("Test Email Error:", error);
     return res.status(500).json({
       success: false,
       error: error.message,
@@ -720,37 +675,17 @@ router.post("/login", async (req, res) => {
         status: "pending_otp"
       });
 
-      // Send OTP Mail
-      const userEmail = process.env.EMAIL_SERVER_USER || "";
-      const passEmail = process.env.EMAIL_SERVER_PASSWORD || "";
-      const hostEmail = process.env.EMAIL_SERVER_HOST || "smtp.gmail.com";
-      const portEmail = parseInt(process.env.EMAIL_SERVER_PORT || "465");
-
+      // Send OTP Mail via email utility
       let devMode = false;
-      if (!userEmail || !passEmail) {
-        devMode = true;
-        console.log(`[Developer Mode] SMTP not configured. Login OTP code for ${user.email} is: ${code}`);
-      } else {
-        try {
-          const transporter = nodemailer.createTransport({
-            host: hostEmail,
-            port: portEmail,
-            secure: portEmail === 465,
-            auth: { user: userEmail, pass: passEmail },
-            family: 4
-          });
-
-          const mailOptions = {
-            from: `"Internship Portal" <${userEmail}>`,
-            to: user.email,
-            subject: "Security Verification - Login OTP",
-            text: `Hello,\n\nYou are attempting to log in via Google Chrome. For security, please enter the following 6-digit verification code:\n\n${code}\n\nThis code will expire in 5 minutes.\n\nRegards,\nInternship Portal Team`
-          };
-
-          await transporter.sendMail(mailOptions);
-        } catch (mailErr) {
-          console.error("Failed to send login OTP email:", mailErr);
-        }
+      try {
+        const emailResult = await sendEmail({
+          to: user.email,
+          subject: "Security Verification - Login OTP",
+          text: `Hello,\n\nYou are attempting to log in via Google Chrome. For security, please enter the following 6-digit verification code:\n\n${code}\n\nThis code will expire in 5 minutes.\n\nRegards,\nInternship Portal Team`
+        });
+        devMode = emailResult && emailResult.method === "console";
+      } catch (mailErr) {
+        console.error("Failed to send login OTP email:", mailErr);
       }
 
       return res.json({
