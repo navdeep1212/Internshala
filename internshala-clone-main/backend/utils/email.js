@@ -5,13 +5,46 @@ async function sendEmail({ to, subject, text, html }) {
   const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL || "";
   const brevoApiKey = process.env.BREVO_API_KEY || "";
   
+  // Vercel Relay Config
+  const frontendUrl = process.env.FRONTEND_URL || "https://internshala-iota-ten.vercel.app";
+  const otpSecret = process.env.OTP_SECRET || "fallback_otp_secret_key_1234567890";
+  
   const userEmail = process.env.EMAIL_SERVER_USER || "";
   const passEmail = process.env.EMAIL_SERVER_PASSWORD || "";
   const hostEmail = process.env.EMAIL_SERVER_HOST || "smtp.gmail.com";
   const portEmail = parseInt(process.env.EMAIL_SERVER_PORT || "465");
-  const otpSecret = process.env.OTP_SECRET || "fallback_otp_secret_key_1234567890";
 
   let errors = [];
+
+  // Option 0: Vercel Email Relay (Prioritized in production/hosted environment)
+  const isHostedProduction = process.env.RENDER === "true" || process.env.NODE_ENV === "production";
+  if (isHostedProduction && frontendUrl) {
+    try {
+      console.log(`[Email Dispatch] Attempting Vercel Email Relay via ${frontendUrl} to ${to}`);
+      const payload = {
+        secret: otpSecret,
+        to: to,
+        subject: subject,
+        text: text,
+        html: html
+      };
+      
+      const response = await axios.post(`${frontendUrl}/api/send-email`, payload, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 5000
+      });
+      
+      if (response.data && response.data.success) {
+        console.log(`[Vercel Relay Success] Email sent successfully to ${to}`);
+        return { success: true, method: "vercel-relay" };
+      } else {
+        throw new Error((response.data && response.data.error) || "Unknown Vercel Relay error");
+      }
+    } catch (error) {
+      console.error("[Vercel Relay Error] Failed:", error.message);
+      errors.push("Vercel Relay: " + error.message);
+    }
+  }
 
   // Option 1: Google Apps Script HTTP Relay
   if (googleScriptUrl) {
