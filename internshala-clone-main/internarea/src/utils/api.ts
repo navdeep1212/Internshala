@@ -24,9 +24,9 @@ export const getBackendBaseUrl = (): string => {
 
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
-    // If hosted and no API URL is configured, fallback to the current origin (e.g. reverse proxy)
+    // If hosted and no API URL is configured, fallback to the known hosted Render backend URL
     if (hostname !== "localhost" && hostname !== "127.0.0.1") {
-      return window.location.origin;
+      return "https://internshala-1-uz4r.onrender.com";
     }
   }
 

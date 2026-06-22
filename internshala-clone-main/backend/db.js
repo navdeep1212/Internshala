@@ -1,9 +1,16 @@
 const mongoose = require("mongoose");
 require("dotenv").config();
 
+// Disable buffering so queries fail fast with clear errors when disconnected, instead of hanging
+mongoose.set("bufferCommands", false);
+
 module.exports.connect = async () => {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    console.error("CRITICAL: DATABASE_URL is not defined in environment variables!");
+  }
   try {
-    await mongoose.connect(process.env.DATABASE_URL, { serverSelectionTimeoutMS: 5000 });
+    await mongoose.connect(dbUrl || "", { serverSelectionTimeoutMS: 5000 });
     console.log("Database is connected successfully to Cloud MongoDB Atlas");
   } catch (error) {
     console.error("Database cloud connection failed. Error details:", error.message);
