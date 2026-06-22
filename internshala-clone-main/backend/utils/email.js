@@ -11,6 +11,8 @@ async function sendEmail({ to, subject, text, html }) {
   const portEmail = parseInt(process.env.EMAIL_SERVER_PORT || "465");
   const otpSecret = process.env.OTP_SECRET || "fallback_otp_secret_key_1234567890";
 
+  let errors = [];
+
   // Option 1: Google Apps Script HTTP Relay
   if (googleScriptUrl) {
     try {
@@ -25,7 +27,7 @@ async function sendEmail({ to, subject, text, html }) {
       
       const response = await axios.post(googleScriptUrl, payload, {
         headers: { "Content-Type": "application/json" },
-        timeout: 8000
+        timeout: 5000
       });
       
       if (response.data && response.data.success) {
@@ -35,7 +37,8 @@ async function sendEmail({ to, subject, text, html }) {
         throw new Error((response.data && response.data.error) || "Unknown Google Apps Script error");
       }
     } catch (error) {
-      console.error("[Google Script Error] Failed to send email via Script Relay:", error.message);
+      console.error("[Google Script Error] Failed:", error.message);
+      errors.push("Google Apps Script: " + error.message);
     }
   }
 
@@ -57,7 +60,7 @@ async function sendEmail({ to, subject, text, html }) {
           "api-key": brevoApiKey,
           "content-type": "application/json"
         },
-        timeout: 8000
+        timeout: 5000
       });
 
       if (response.status === 201 || response.status === 200) {
@@ -67,43 +70,53 @@ async function sendEmail({ to, subject, text, html }) {
         throw new Error(JSON.stringify(response.data));
       }
     } catch (error) {
-      console.error("[Brevo API Error] Failed to send email via Brevo API:", error.message);
+      console.error("[Brevo API Error] Failed:", error.message);
+      errors.push("Brevo API: " + error.message);
     }
   }
 
   // Option 3: Direct SMTP using Nodemailer
   if (userEmail && passEmail) {
-    console.log(`[Email Dispatch] Attempting SMTP sending to ${to}`);
-    const transporter = nodemailer.createTransport({
-      host: hostEmail,
-      port: portEmail,
-      secure: portEmail === 465,
-      auth: { user: userEmail, pass: passEmail },
-      family: 4
-    });
+    try {
+      console.log(`[Email Dispatch] Attempting SMTP sending to ${to}`);
+      const transporter = nodemailer.createTransport({
+        host: hostEmail,
+        port: portEmail,
+        secure: portEmail === 465,
+        auth: { user: userEmail, pass: passEmail },
+        family: 4,
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 5000
+      });
 
-    const mailOptions = {
-      from: `"Internship Portal" <${userEmail}>`,
-      to,
-      subject,
-      text,
-      html
-    };
+      const mailOptions = {
+        from: `"Internship Portal" <${userEmail}>`,
+        to,
+        subject,
+        text,
+        html
+      };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`[SMTP Success] Email sent successfully to ${to}`);
-    return { success: true, method: "smtp" };
+      await transporter.sendMail(mailOptions);
+      console.log(`[SMTP Success] Email sent successfully to ${to}`);
+      return { success: true, method: "smtp" };
+    } catch (error) {
+      console.error("[SMTP Error] Failed:", error.message);
+      errors.push("SMTP: " + error.message);
+    }
   }
 
-  // Sandbox / Developer mode fallback
-  console.log(`[Developer Mode Log]
+  // Graceful Fallback: print to console so user can always see the OTP code
+  console.log(`[Developer Fallback Mode] Active due to failed sending options or lack of credentials.
+Errors encountered: ${errors.join(" | ") || "None"}
 =========================================
 TO: ${to}
 SUBJECT: ${subject}
 BODY:
 ${text}
 =========================================`);
-  return { success: true, method: "console" };
+  return { success: true, method: "console", errors };
 }
 
 module.exports = { sendEmail };
