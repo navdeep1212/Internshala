@@ -176,7 +176,8 @@ const Navbar = () => {
       await signInWithPopup(auth, provider);
     } catch (error: any) {
       console.error(error);
-      toast.error("Login failed");
+      const errorMsg = error.code ? `${error.code}: ${error.message}` : error.message || error;
+      toast.error(`Login failed: ${errorMsg}`);
     } finally {
       setIsLoggingIn(false);
     }
