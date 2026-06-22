@@ -198,7 +198,8 @@ router.post("/send-otp", async (req, res) => {
       host: hostEmail,
       port: portEmail,
       secure: portEmail === 465,
-      auth: { user: userEmail, pass: passEmail }
+      auth: { user: userEmail, pass: passEmail },
+      family: 4
     });
 
     const mailOptions = {
@@ -880,7 +881,8 @@ async function sendInvoiceEmail({ email, name, plan, amount, invoiceNumber, expi
     host: hostEmail,
     port: portEmail,
     secure: portEmail === 465,
-    auth: { user: userEmail, pass: passEmail }
+    auth: { user: userEmail, pass: passEmail },
+    family: 4
   });
 
   const html = `

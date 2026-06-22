@@ -239,7 +239,8 @@ router.post("/forgot-password", async (req, res) => {
       host: hostEmail,
       port: portEmail,
       secure: portEmail === 465,
-      auth: { user: userEmail, pass: passEmail }
+      auth: { user: userEmail, pass: passEmail },
+      family: 4
     });
 
     const mailOptions = {
@@ -509,7 +510,8 @@ router.get("/test-email", async (req, res) => {
       host: hostEmail,
       port: portEmail,
       secure: portEmail === 465,
-      auth: { user: userEmail, pass: passEmail }
+      auth: { user: userEmail, pass: passEmail },
+      family: 4
     });
 
     const mailOptions = {
@@ -674,7 +676,8 @@ router.post("/login", async (req, res) => {
             host: hostEmail,
             port: portEmail,
             secure: portEmail === 465,
-            auth: { user: userEmail, pass: passEmail }
+            auth: { user: userEmail, pass: passEmail },
+            family: 4
           });
 
           const mailOptions = {
@@ -959,7 +962,8 @@ router.post("/google-sync", async (req, res) => {
             host: hostEmail,
             port: portEmail,
             secure: portEmail === 465,
-            auth: { user: userEmail, pass: passEmail }
+            auth: { user: userEmail, pass: passEmail },
+            family: 4
           });
 
           const mailOptions = {
