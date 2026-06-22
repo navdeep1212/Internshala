@@ -941,37 +941,17 @@ router.post("/google-sync", async (req, res) => {
         status: "pending_otp"
       });
 
-      // Send OTP Mail
-      const userEmail = process.env.EMAIL_SERVER_USER || "";
-      const passEmail = process.env.EMAIL_SERVER_PASSWORD || "";
-      const hostEmail = process.env.EMAIL_SERVER_HOST || "smtp.gmail.com";
-      const portEmail = parseInt(process.env.EMAIL_SERVER_PORT || "465");
-
+      // Send OTP Mail via email utility
       let devMode = false;
-      if (!userEmail || !passEmail) {
-        devMode = true;
-        console.log(`[Developer Mode] SMTP not configured. Google Chrome Sync OTP code for ${user.email} is: ${code}`);
-      } else {
-        try {
-          const transporter = nodemailer.createTransport({
-            host: hostEmail,
-            port: portEmail,
-            secure: portEmail === 465,
-            auth: { user: userEmail, pass: passEmail },
-            family: 4
-          });
-
-          const mailOptions = {
-            from: `"Internship Portal" <${userEmail}>`,
-            to: user.email,
-            subject: "Security Verification - Login OTP",
-            text: `Hello,\n\nYou are attempting to log in with Google via Google Chrome. For security, please enter the following 6-digit verification code:\n\n${code}\n\nThis code will expire in 5 minutes.\n\nRegards,\nInternship Portal Team`
-          };
-
-          await transporter.sendMail(mailOptions);
-        } catch (mailErr) {
-          console.error("Failed to send login OTP email:", mailErr);
-        }
+      try {
+        const emailResult = await sendEmail({
+          to: user.email,
+          subject: "Security Verification - Login OTP",
+          text: `Hello,\n\nYou are attempting to log in with Google via Google Chrome. For security, please enter the following 6-digit verification code:\n\n${code}\n\nThis code will expire in 5 minutes.\n\nRegards,\nInternship Portal Team`
+        });
+        devMode = emailResult && emailResult.method === "console";
+      } catch (mailErr) {
+        console.error("Failed to send login OTP email:", mailErr);
       }
 
       return res.json({
